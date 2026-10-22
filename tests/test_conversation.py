@@ -52,7 +52,7 @@ class ConversationTests(unittest.TestCase):
         self.assertIsNone(bot.state.trip_type)
 
     def test_console_selection(self):
-        with patch.object(main, 'load_settings', return_value=Settings('fake-key', 'test-model')), patch('builtins.input', side_effect=['1']), contextlib.redirect_stdout(io.StringIO()) as output:
+        with patch.object(main, 'load_settings', return_value=Settings('fake-key', 'test-model')), patch('builtins.input', side_effect=['1', '2', '3']), contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(main.main([]), 0)
         self.assertIn('Beach getaway', output.getvalue())
         self.assertIn('saved', output.getvalue())

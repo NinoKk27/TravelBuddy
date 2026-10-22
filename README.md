@@ -10,7 +10,7 @@ Python console chatbot for planning a weekend getaway.
 4. Copy `.env.example` to `.env` and add your OpenRouter API key.
 5. Run `python main.py`, or run `main.py` from PyCharm.
 
-Configuration loading, validation, and client initialization are implemented. The greeting and trip-type selection are implemented; accommodation and activities are pending.
+Configuration loading, validation, and client initialization are implemented. The greeting, trip-type selection, accommodation selection, and trip-specific activity selection are implemented with input validation.
 The OpenAI Python SDK can be configured to call OpenRouter's compatible API.
 
 ## Project structure
@@ -27,7 +27,7 @@ TravelBuddy/
 `-- README.md
 ```
 
-The entry point validates settings and runs the greeting and trip-type selection. Use `python main.py --check-api` to send a separate short model request.
+The entry point validates settings and runs all three guided selection stages. Use `python main.py --check-api` to send a separate short model request.
 
 ## Implementation checklist
 
@@ -72,19 +72,27 @@ Never commit `.env`. Connecting model responses to the guided conversation is a 
 
 OpenRouter's SDK compatibility reference: https://openrouter.ai/blog/tutorials/any-coding-agent/
 
-## Steps 6-10: first conversation stage
+## Guided selection: steps 7-15
 
-Run `python main.py`. Choose `1` (Beach getaway), `2` (Mountain adventure),
-or `3` (City break); full option names also work, ignoring case and surrounding
-spaces. These are starter options pending confirmation of the original assignment.
-The bot records the choice and advances its state to accommodation. This milestone
-then ends the console session; accommodation selection will be implemented next.
-Choices and history are in memory only and reset when the application restarts.
+Run `python main.py` and choose an option number or full name at each stage.
+Matching ignores case and extra whitespace. Each stage offers three options:
 
-The state also reserves fields for accommodation and activity. History stores the
-assistant greeting, user messages, and assistant replies in order. Basic invalid-input
-handling and `exit` support keep this first stage usable. Model-generated responses
-are not yet connected to the guided conversation.
+- Trip type: Beach getaway, Mountain adventure, or City break.
+- Accommodation: Hotel, Hostel, or Vacation rental.
+- Beach activities: Swimming, Snorkeling, or Sunset beach walk.
+- Mountain activities: Hiking, Mountain biking, or Stargazing.
+- City activities: Museum visit, Food tour, or Walking tour.
+
+These are starter options pending confirmation of the original assignment.
+Invalid input repeats the current menu without changing the step or earlier choices.
+Activities from another trip type are rejected. Type `exit` at any selection stage
+for a goodbye; closing input or pressing Ctrl+C also ends the conversation cleanly.
+
+After activity selection, all three choices are stored and the state advances to
+`SUMMARY`. This milestone ends the console session there; generating the final
+summary and connecting model responses are later steps. Choices and message history
+are in memory only and reset when the application restarts. History preserves the
+assistant greeting and each user/assistant exchange, including invalid answers.
 
 Run `python main.py --check-api` to send one short request using the configured model.
 The request helper follows https://github.com/OpenRouterTeam/openrouter-examples-python/blob/main/src/openai_test.py.

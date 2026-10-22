@@ -35,7 +35,7 @@ def main(argv=None) -> int:
 
     bot = TravelBuddy()
     print(bot.start())
-    while bot.state.step == Step.TRIP_TYPE:
+    while bot.state.step not in (Step.SUMMARY, Step.EXITED):
         try:
             message = input("You: ")
         except (EOFError, KeyboardInterrupt):
