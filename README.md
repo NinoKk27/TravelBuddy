@@ -1,132 +1,176 @@
 # TravelBuddy
 
-Python console chatbot for planning a weekend getaway.
+A Python console assistant for planning a weekend getaway. Choose a trip type,
+accommodation, and a matching activity. OpenRouter provides brief acknowledgments,
+travel advice, and help returning to the current question.
 
-## Setup
+## Setup and run
 
-1. Open this folder as a project in PyCharm.
-2. Install Python 3.11 or newer and create a project virtual environment (`.venv`).
-3. In the project terminal, run `python -m pip install -r requirements.txt`.
-4. Copy `.env.example` to `.env` and add your OpenRouter API key.
-5. Run `python main.py`, or run `main.py` from PyCharm.
+Use Python 3.11 or newer. In the project folder, create a virtual environment if
+you do not already have one, then install the dependencies:
 
-Configuration loading, validation, and client initialization are implemented. The greeting, trip-type selection, accommodation selection, and trip-specific activity selection are implemented with input validation.
-The OpenAI Python SDK can be configured to call OpenRouter's compatible API.
-
-## Project structure
-
-```text
-TravelBuddy/
-|-- main.py              # Entry point and console input/output
-|-- chatbot.py           # Conversation flow, state, and trip choices
-|-- llm_client.py        # OpenRouter API integration
-|-- config.py            # Environment variables and settings
-|-- requirements.txt
-|-- .env.example
-|-- .gitignore
-`-- README.md
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env
 ```
 
-The entry point validates settings and runs all three guided selection stages. Use `python main.py --check-api` to send a separate short model request.
+Copy the environment template only if `.env` does not already exist. Edit `.env`
+locally and replace the placeholder API key with your OpenRouter key. Set
+`OPENROUTER_MODEL` to the exact model required by your assignment. The template's
+model availability has not been verified. If it is unavailable, select a currently
+available free model in OpenRouter and put its exact model ID in this setting.
+Model switching is manual; the application does not silently choose another model.
 
-## Implementation checklist
+```powershell
+.\.venv\Scripts\python.exe main.py --check-api
+.\.venv\Scripts\python.exe main.py
+```
 
-- Greet the user in an upbeat, friendly tone.
-- Guide trip type, accommodation, and activities, with three options at each step.
-- Make activities appropriate for the trip type.
-- Preserve conversation history and previous choices.
-- Handle unexpected input and guide the user back to the current step.
-- Summarize the final plan; say goodbye and quit on `exit`.
-- Use the specified OpenRouter model, or a free OpenRouter model if unavailable.
+The first command sends one short live request and exits. Normal conversations send
+requests after non-exit answers. In PyCharm, select `.venv` as the project interpreter
+and run `main.py`. Settings are loaded from the `.env` beside the source files, even
+when the working directory differs. Existing environment variables take precedence.
+Keep `.env` out of Git and do not share your key in chat.
+
+## Using the planner
+
+Enter a displayed number or the full option name. Matching ignores case and extra
+whitespace. Invalid choices repeat the current menu without changing saved choices.
+
+| Stage | Options |
+| --- | --- |
+| Trip type | Beach getaway; Mountain adventure; City break |
+| Accommodation | Hotel; Hostel; Vacation rental |
+| Beach activity | Swimming; Snorkeling; Sunset beach walk |
+| Mountain activity | Hiking; Mountain biking; Stargazing |
+| City activity | Museum visit; Food tour; Walking tour |
+
+After the third selection, the bot displays the exact saved plan and accepts
+follow-up questions. Type `exit` at any stage to say goodbye. EOF or Ctrl+C also
+ends the session. Choices and history exist only in memory and reset on restart.
+The bot does not book travel, check live availability, or persist plans.
 
 ## Example conversation
 
-TODO: Add an actual example after implementation.
+This transcript is generated from the actual conversation engine with model replies
+disabled (`TravelBuddy()`). Live runs add model-generated text before these menus
+and confirmations; that wording has not been verified against a live provider.
 
-## Design decisions
+```text
+Hi! I'm TravelBuddy. Let's plan your weekend getaway!
+We'll choose your trip type, accommodation, and activities together.
+Type exit whenever you want to leave.
 
-TODO: Explain conversation state, prompting, and error handling.
+What kind of trip sounds good?
+1. Beach getaway
+2. Mountain adventure
+3. City break
+Enter an option number or its name, or type exit.
+You: 2
+Great choice! Your trip type is Mountain adventure.
+
+Where would you like to stay?
+1. Hotel
+2. Hostel
+3. Vacation rental
+Enter an option number or its name, or type exit.
+You: 3
+Your accommodation choice is Vacation rental.
+
+What would you like to do on your Mountain adventure?
+1. Hiking
+2. Mountain biking
+3. Stargazing
+Enter an option number or its name, or type exit.
+You: 1
+Here's your weekend plan!
+Trip type: Mountain adventure
+Accommodation: Vacation rental
+Activity: Hiking
+Your choices are saved for this session. Ask a travel question or type exit to leave.
+You: exit
+Goodbye! Have a wonderful next adventure!
+```
+
+## Structure and design decisions
+
+- `main.py`: console I/O, startup validation, client lifetime, and the API-check command.
+- `config.py`: immutable settings, environment loading, and validation. The settings
+  representation hides the key; blank values and the example key are rejected.
+- `chatbot.py`: conversation state, option parsing, history, prompts, and summaries.
+- `llm_client.py`: OpenRouter client, requests, and readable failure messages.
+- `tests/`: offline unit and console-flow tests using simulated model responses.
+
+The state advances from `TRIP_TYPE` to `ACCOMMODATION`, `ACTIVITIES`, and `SUMMARY`.
+`EXITED` can be reached from any stage. Only valid explicit choices advance the
+state. Earlier choices are preserved when input is invalid or a request fails.
+
+The model adapter is injected into the conversation engine. The engine has no
+SDK dependency, network operations, or console I/O. This separation allows offline
+testing. It is a small modular application rather than a full layered Clean
+Architecture project.
+
+Each request contains system instructions, the current state and available options,
+and a snapshot of the conversation history. The model is instructed to give concise
+travel advice and redirect unrelated questions. The application appends its own menu
+or summary and never lets model text modify the stored choices. Model wording can
+still vary or be inaccurate; live behavior requires checking with the chosen model.
+
+## Errors and troubleshooting
+
+- Missing configuration: startup stops with the setting name that needs attention.
+- Authentication or permission error: check the key and account/model access.
+- Unavailable model or invalid request: check the configured model ID.
+- Insufficient credits: check the account balance or select an available free model.
+- Rate limit, timeout, or service error: try again later.
+- Connection error: check internet access.
+- Empty model response: the guided planner continues with its own menu or summary.
+
+Errors do not print raw provider response bodies. During a conversation, expected API
+failures produce a readable message and preserve the guided flow. Later non-exit turns
+try the model again. The SDK has a 30-second request timeout and up to two retries,
+so a failed turn can take longer than 30 seconds. `exit` does not call the model.
+The client is closed when the session ends.
+
+## Tests
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+Tests run offline without a real key or API requests. They cover all 27 choice
+combinations, case and whitespace handling, invalid inputs at every stage,
+trip-specific activities, state/history isolation, summaries, unrelated messages,
+model request context, API failures, exits, console interruption, configuration,
+and client cleanup. Top-level dependencies are pinned to the locally tested versions.
+
+## Requirements review and remaining verification
+
+The checklist below uses the original project README as the working specification.
+The separate programming assignment was not found in the supplied Exercise2 folder;
+its exact model, required option wording, and submission rules remain unconfirmed.
+
+| Requirement | Result |
+| --- | --- |
+| Friendly greeting | Implemented |
+| Three options at each planning stage | Implemented |
+| Activities appropriate to trip type | Implemented |
+| Preserve history and prior choices | Implemented per session |
+| Handle unexpected input and return to the current step | Implemented; model wording tested with simulated responses |
+| Final plan summary | Implemented from saved choices |
+| Goodbye and exit | Implemented at all stages |
+| Specified model or free alternative | Configurable; manual replacement documented, exact required model unconfirmed |
+| Live API verification | Blocked by missing OPENROUTER_API_KEY at final review |
+| Original-assignment compliance | Pending original assignment |
+
+Before submission, configure the key locally, verify the model with `--check-api`,
+then try a full live conversation including an unrelated question. Compare the
+result and model choice with the original assignment. The offline checks cannot
+confirm credentials, current model availability, or the quality of live responses.
 
 ## Git
 
-This folder has its own Git repository. Make meaningful commits while developing.
-The GitHub repository is https://github.com/NinoKk27/TravelBuddy. Keep `.env` out of Git.
-
-## Configuration and current scope
-
-The requirements checklist above is the working specification from this README;
-it has not yet been checked against the original programming assignment.
-
-- `config.py` reads `.env` beside the source files, regardless of the working directory.
-- Existing environment variables override `.env` values. Both `OPENROUTER_API_KEY`
-  and `OPENROUTER_MODEL` are required; blank values and the example key are rejected.
-- Settings are immutable, and their representation hides the API key.
-- `llm_client.py` constructs the OpenRouter client with a 30-second timeout and
-  up to two retries. Client construction does not authenticate or send a request.
-- `main.py` handles configuration errors with a readable message and exit code 1, and runs the console interaction.
-- `chatbot.py` owns conversation state, per-session message history, the greeting, and trip selection.
-
-Copy `.env.example` to `.env`, replace the placeholder key, and set the model
-required by the assignment. The example model's availability has not been verified.
-Never commit `.env`. Normal conversations now call the configured model after each non-exit answer.
-
-OpenRouter's SDK compatibility reference: https://openrouter.ai/blog/tutorials/any-coding-agent/
-
-## Guided selection: steps 7-15
-
-Run `python main.py` and choose an option number or full name at each stage.
-Matching ignores case and extra whitespace. Each stage offers three options:
-
-- Trip type: Beach getaway, Mountain adventure, or City break.
-- Accommodation: Hotel, Hostel, or Vacation rental.
-- Beach activities: Swimming, Snorkeling, or Sunset beach walk.
-- Mountain activities: Hiking, Mountain biking, or Stargazing.
-- City activities: Museum visit, Food tour, or Walking tour.
-
-These are starter options pending confirmation of the original assignment.
-Invalid input repeats the current menu without changing the step or earlier choices.
-Activities from another trip type are rejected. Type `exit` at any selection stage
-for a goodbye; closing input or pressing Ctrl+C also ends the conversation cleanly.
-
-After activity selection, all three choices are stored and the state advances to
-`SUMMARY`. The bot displays the exact saved trip type, accommodation, and activity,
-then accepts follow-up questions until the user types `exit`. Choices and message history
-are in memory only and reset when the application restarts. History preserves the
-assistant greeting and each user/assistant exchange, including invalid answers.
-
-Run `python main.py --check-api` to send one short request using the configured model.
-The request helper follows https://github.com/OpenRouterTeam/openrouter-examples-python/blob/main/src/openai_test.py.
-Live verification is pending: no API key was configured when this stage was implemented.
-Configure `.env` locally before running the check; do not put the key in chat or Git.
-
-Run the offline tests from the project folder:
-
-```text
-python -m unittest discover -s tests -v
-```
-
-
-## Model-assisted conversation: steps 16-20
-
-The console creates a `ModelAssistant` and injects it into `TravelBuddy`. The model
-receives system instructions, a snapshot of the current step and choices, the
-available options, and the conversation history. It supplies short acknowledgments
-and travel advice. For unrelated questions, it is instructed to acknowledge briefly
-and return to planning; the application always appends the current menu.
-
-Selection matching remains explicit: enter a listed number or full option name.
-The model cannot change stored choices. The final summary is generated from those
-choices so it remains available even when the API fails. Model wording can vary;
-its behavior has been tested using simulated responses, not a live provider call.
-
-Authentication, permission, connection, timeout, rate-limit, credit, model/request,
-and service errors produce readable messages without printing raw provider error
-bodies. Empty responses also fall back to the guided flow. Users can keep choosing
-options after a failed request; later non-exit turns try the model again. The SDK
-uses the configured 30-second timeout and up to two retries. No alternate model is
-selected automatically; model availability/fallback still needs assignment review.
-
-`exit` skips the API at every stage, including after the summary. EOF and Ctrl+C
-end the session with a goodbye, including Ctrl+C while waiting for a model response.
-The client is closed when the session ends. Missing configuration still stops startup
-with an explanatory message. Live API verification remains pending.
+The repository is https://github.com/NinoKk27/TravelBuddy. `.env`, `.venv`, `.idea`,
+and Python cache files are ignored. Review the diff before committing; include
+source, tests, README, requirements, and `.env.example`, but never credentials.
