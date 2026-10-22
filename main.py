@@ -7,7 +7,20 @@ from openai import OpenAIError
 
 from chatbot import Step, TravelBuddy
 from config import ConfigurationError, load_settings
-from llm_client import create_client, request_reply
+from llm_client import ModelAssistant, api_error_message, create_client, request_reply
+
+
+def run_conversation(bot: TravelBuddy) -> int:
+    print(bot.start())
+    while bot.state.step != Step.EXITED:
+        try:
+            message = input("You: ")
+            reply = bot.respond(message)
+        except (EOFError, KeyboardInterrupt):
+            print("\n" + bot.respond("exit"))
+            break
+        print(reply)
+    return 0
 
 
 def main(argv=None) -> int:
@@ -20,29 +33,21 @@ def main(argv=None) -> int:
         print(f"Configuration error: {error}", file=sys.stderr)
         return 1
 
-    if args.check_api:
-        try:
-            with create_client(settings) as client:
+    try:
+        with create_client(settings) as client:
+            if args.check_api:
                 reply = request_reply(client, settings.model, [
                     {"role": "user", "content": "Reply with a short greeting for a travel planner."}
                 ])
-            print(f"Model response: {reply}")
-            return 0
-        except (OpenAIError, ValueError) as error:
-            # Do not print provider error bodies, which may contain sensitive details.
-            print(f"API check failed ({type(error).__name__}). Check your key, model, and connection.", file=sys.stderr)
-            return 1
-
-    bot = TravelBuddy()
-    print(bot.start())
-    while bot.state.step not in (Step.SUMMARY, Step.EXITED):
-        try:
-            message = input("You: ")
-        except (EOFError, KeyboardInterrupt):
-            print("\n" + bot.respond("exit"))
-            break
-        print(bot.respond(message))
-    return 0
+                print(f"Model response: {reply}")
+                return 0
+            return run_conversation(TravelBuddy(ModelAssistant(client, settings.model)))
+    except (OpenAIError, ValueError) as error:
+        print(api_error_message(error), file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        print("\nGoodbye! Have a wonderful next adventure!")
+        return 0
 
 
 if __name__ == "__main__":

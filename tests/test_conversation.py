@@ -52,13 +52,13 @@ class ConversationTests(unittest.TestCase):
         self.assertIsNone(bot.state.trip_type)
 
     def test_console_selection(self):
-        with patch.object(main, 'load_settings', return_value=Settings('fake-key', 'test-model')), patch('builtins.input', side_effect=['1', '2', '3']), contextlib.redirect_stdout(io.StringIO()) as output:
+        with patch.object(main, 'create_client'), patch.object(main, 'ModelAssistant', return_value=lambda messages: 'Happy travels!'), patch.object(main, 'load_settings', return_value=Settings('fake-key', 'test-model')), patch('builtins.input', side_effect=['1', '2', '3', 'exit']), contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(main.main([]), 0)
         self.assertIn('Beach getaway', output.getvalue())
         self.assertIn('saved', output.getvalue())
 
     def test_console_eof(self):
-        with patch.object(main, 'load_settings', return_value=Settings('fake-key', 'test-model')), patch('builtins.input', side_effect=EOFError), contextlib.redirect_stdout(io.StringIO()) as output:
+        with patch.object(main, 'create_client'), patch.object(main, 'ModelAssistant', return_value=lambda messages: 'Happy travels!'), patch.object(main, 'load_settings', return_value=Settings('fake-key', 'test-model')), patch('builtins.input', side_effect=EOFError), contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(main.main([]), 0)
         self.assertIn('Goodbye', output.getvalue())
 

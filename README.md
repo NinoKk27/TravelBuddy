@@ -68,7 +68,7 @@ it has not yet been checked against the original programming assignment.
 
 Copy `.env.example` to `.env`, replace the placeholder key, and set the model
 required by the assignment. The example model's availability has not been verified.
-Never commit `.env`. Connecting model responses to the guided conversation is a later step.
+Never commit `.env`. Normal conversations now call the configured model after each non-exit answer.
 
 OpenRouter's SDK compatibility reference: https://openrouter.ai/blog/tutorials/any-coding-agent/
 
@@ -89,8 +89,8 @@ Activities from another trip type are rejected. Type `exit` at any selection sta
 for a goodbye; closing input or pressing Ctrl+C also ends the conversation cleanly.
 
 After activity selection, all three choices are stored and the state advances to
-`SUMMARY`. This milestone ends the console session there; generating the final
-summary and connecting model responses are later steps. Choices and message history
+`SUMMARY`. The bot displays the exact saved trip type, accommodation, and activity,
+then accepts follow-up questions until the user types `exit`. Choices and message history
 are in memory only and reset when the application restarts. History preserves the
 assistant greeting and each user/assistant exchange, including invalid answers.
 
@@ -104,3 +104,29 @@ Run the offline tests from the project folder:
 ```text
 python -m unittest discover -s tests -v
 ```
+
+
+## Model-assisted conversation: steps 16-20
+
+The console creates a `ModelAssistant` and injects it into `TravelBuddy`. The model
+receives system instructions, a snapshot of the current step and choices, the
+available options, and the conversation history. It supplies short acknowledgments
+and travel advice. For unrelated questions, it is instructed to acknowledge briefly
+and return to planning; the application always appends the current menu.
+
+Selection matching remains explicit: enter a listed number or full option name.
+The model cannot change stored choices. The final summary is generated from those
+choices so it remains available even when the API fails. Model wording can vary;
+its behavior has been tested using simulated responses, not a live provider call.
+
+Authentication, permission, connection, timeout, rate-limit, credit, model/request,
+and service errors produce readable messages without printing raw provider error
+bodies. Empty responses also fall back to the guided flow. Users can keep choosing
+options after a failed request; later non-exit turns try the model again. The SDK
+uses the configured 30-second timeout and up to two retries. No alternate model is
+selected automatically; model availability/fallback still needs assignment review.
+
+`exit` skips the API at every stage, including after the summary. EOF and Ctrl+C
+end the session with a goodbye, including Ctrl+C while waiting for a model response.
+The client is closed when the session ends. Missing configuration still stops startup
+with an explanatory message. Live API verification remains pending.
